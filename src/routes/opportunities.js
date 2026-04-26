@@ -1,61 +1,78 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db/database");
+const { query, queryOne, execute } = require("../db/database");
 
-router.get("/", (req, res) => {
-  const opportunities = db
-    .prepare("SELECT * FROM opportunities ORDER BY name")
-    .all();
-  res.json(opportunities);
+router.get("/", async (req, res) => {
+  try {
+    const opportunities = await query(
+      "SELECT * FROM opportunities ORDER BY name",
+    );
+    res.json(opportunities);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.get("/:id", (req, res) => {
-  const opportunity = db
-    .prepare("SELECT * FROM opportunities WHERE id = ?")
-    .get(req.params.id);
-  if (!opportunity)
-    return res.status(404).json({ error: "Opportunity not found" });
-  res.json(opportunity);
+router.get("/:id", async (req, res) => {
+  try {
+    const opportunity = await queryOne(
+      "SELECT * FROM opportunities WHERE id = $1",
+      [req.params.id],
+    );
+    if (!opportunity)
+      return res.status(404).json({ error: "Opportunity not found" });
+    res.json(opportunity);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post("/", (req, res) => {
-  const { name, value, stage, notes, prospect_id, key_contact_id } = req.body;
-  if (!name) return res.status(400).json({ error: "Name is required" });
-  const result = db
-    .prepare(
-      "INSERT INTO opportunities (name, value, stage, notes, prospect_id, key_contact_id) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .run(name, value, stage, notes || "", prospect_id, key_contact_id);
-  const opportunity = db
-    .prepare("SELECT * FROM opportunities WHERE id = ?")
-    .get(result.lastInsertRowid);
-  res.status(201).json(opportunity);
+router.post("/", async (req, res) => {
+  try {
+    const { name, value, stage, notes, prospect_id, key_contact_id } = req.body;
+    if (!name) return res.status(400).json({ error: "Name is required" });
+    const opportunity = await queryOne(
+      "INSERT INTO opportunities (name, value, stage, notes, prospect_id, key_contact_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [name, value, stage, notes || "", prospect_id, key_contact_id],
+    );
+    res.status(201).json(opportunity);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.put("/:id", (req, res) => {
-  const { name, value, stage, notes, prospect_id, key_contact_id } = req.body;
-  const existing = db
-    .prepare("SELECT * FROM opportunities WHERE id = ?")
-    .get(req.params.id);
-  if (!existing)
-    return res.status(404).json({ error: "Opportunity not found" });
-  db.prepare(
-    "UPDATE opportunities SET name = ?, value = ?, stage = ?, notes = ?, prospect_id = ?, key_contact_id = ? WHERE id = ?",
-  ).run(name, value, stage, notes, prospect_id, key_contact_id, req.params.id);
-  const opportunity = db
-    .prepare("SELECT * FROM opportunities WHERE id = ?")
-    .get(req.params.id);
-  res.json(opportunity);
+router.put("/:id", async (req, res) => {
+  try {
+    const { name, value, stage, notes, prospect_id, key_contact_id } = req.body;
+    const existing = await queryOne(
+      "SELECT * FROM opportunities WHERE id = $1",
+      [req.params.id],
+    );
+    if (!existing)
+      return res.status(404).json({ error: "Opportunity not found" });
+    const opportunity = await queryOne(
+      "UPDATE opportunities SET name = $1, value = $2, stage = $3, notes = $4, prospect_id = $5, key_contact_id = $6 WHERE id = $7 RETURNING *",
+      [name, value, stage, notes, prospect_id, key_contact_id, req.params.id],
+    );
+    res.json(opportunity);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.delete("/:id", (req, res) => {
-  const existing = db
-    .prepare("SELECT * FROM opportunities WHERE id = ?")
-    .get(req.params.id);
-  if (!existing)
-    return res.status(404).json({ error: "Opportunity not found" });
-  db.prepare("DELETE FROM opportunities WHERE id = ?").run(req.params.id);
-  res.json({ success: true });
+router.delete("/:id", async (req, res) => {
+  try {
+    const existing = await queryOne(
+      "SELECT * FROM opportunities WHERE id = $1",
+      [req.params.id],
+    );
+    if (!existing)
+      return res.status(404).json({ error: "Opportunity not found" });
+    await execute("DELETE FROM opportunities WHERE id = $1", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

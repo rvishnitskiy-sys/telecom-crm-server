@@ -1,171 +1,145 @@
-const db = require("../db/database");
+const { query, queryOne, execute } = require("../db/database");
 
 const resolvers = {
-  prospects: () => {
-    const prospects = db.prepare("SELECT * FROM prospects ORDER BY name").all();
+  prospects: async () => {
+    const prospects = await query("SELECT * FROM prospects ORDER BY name");
     return prospects.map((p) => ({
       ...p,
       contacts: () =>
-        db.prepare("SELECT * FROM contacts WHERE prospect_id = ?").all(p.id),
+        query("SELECT * FROM contacts WHERE prospect_id = $1", [p.id]),
       opportunities: () =>
-        db
-          .prepare("SELECT * FROM opportunities WHERE prospect_id = ?")
-          .all(p.id),
+        query("SELECT * FROM opportunities WHERE prospect_id = $1", [p.id]),
     }));
   },
 
-  prospect: ({ id }) => {
-    const p = db.prepare("SELECT * FROM prospects WHERE id = ?").get(id);
+  prospect: async ({ id }) => {
+    const p = await queryOne("SELECT * FROM prospects WHERE id = $1", [id]);
     if (!p) return null;
     return {
       ...p,
       contacts: () =>
-        db.prepare("SELECT * FROM contacts WHERE prospect_id = ?").all(p.id),
+        query("SELECT * FROM contacts WHERE prospect_id = $1", [p.id]),
       opportunities: () =>
-        db
-          .prepare("SELECT * FROM opportunities WHERE prospect_id = ?")
-          .all(p.id),
+        query("SELECT * FROM opportunities WHERE prospect_id = $1", [p.id]),
     };
   },
 
-  contacts: () => {
-    const contacts = db.prepare("SELECT * FROM contacts ORDER BY name").all();
+  contacts: async () => {
+    const contacts = await query("SELECT * FROM contacts ORDER BY name");
     return contacts.map((c) => ({
       ...c,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(c.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [c.prospect_id]),
     }));
   },
 
-  contact: ({ id }) => {
-    const c = db.prepare("SELECT * FROM contacts WHERE id = ?").get(id);
+  contact: async ({ id }) => {
+    const c = await queryOne("SELECT * FROM contacts WHERE id = $1", [id]);
     if (!c) return null;
     return {
       ...c,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(c.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [c.prospect_id]),
     };
   },
 
-  opportunities: () => {
-    const opps = db.prepare("SELECT * FROM opportunities ORDER BY name").all();
+  opportunities: async () => {
+    const opps = await query("SELECT * FROM opportunities ORDER BY name");
     return opps.map((o) => ({
       ...o,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(o.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [o.prospect_id]),
       keyContact: () =>
         o.key_contact_id
-          ? db
-              .prepare("SELECT * FROM contacts WHERE id = ?")
-              .get(o.key_contact_id)
+          ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
     }));
   },
 
-  opportunity: ({ id }) => {
-    const o = db.prepare("SELECT * FROM opportunities WHERE id = ?").get(id);
+  opportunity: async ({ id }) => {
+    const o = await queryOne("SELECT * FROM opportunities WHERE id = $1", [id]);
     if (!o) return null;
     return {
       ...o,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(o.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [o.prospect_id]),
       keyContact: () =>
         o.key_contact_id
-          ? db
-              .prepare("SELECT * FROM contacts WHERE id = ?")
-              .get(o.key_contact_id)
+          ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
     };
   },
 
-  createProspect: ({ name, segment, country, website }) => {
-    const result = db
-      .prepare(
-        "INSERT INTO prospects (name, segment, country, website) VALUES (?, ?, ?, ?)",
-      )
-      .run(name, segment, country, website);
-    const p = db
-      .prepare("SELECT * FROM prospects WHERE id = ?")
-      .get(result.lastInsertRowid);
-    return {
-      ...p,
-      contacts: () => [],
-      opportunities: () => [],
-    };
+  createProspect: async ({ name, segment, country, website }) => {
+    const p = await queryOne(
+      "INSERT INTO prospects (name, segment, country, website) VALUES ($1, $2, $3, $4) RETURNING *",
+      [name, segment, country, website],
+    );
+    return { ...p, contacts: () => [], opportunities: () => [] };
   },
 
-  createContact: ({ name, role, email, phone, prospect_id }) => {
-    const result = db
-      .prepare(
-        "INSERT INTO contacts (name, role, email, phone, prospect_id) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(name, role, email, phone, prospect_id);
-    const c = db
-      .prepare("SELECT * FROM contacts WHERE id = ?")
-      .get(result.lastInsertRowid);
+  createContact: async ({ name, role, email, phone, prospect_id }) => {
+    const c = await queryOne(
+      "INSERT INTO contacts (name, role, email, phone, prospect_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [name, role, email, phone, prospect_id],
+    );
     return {
       ...c,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(c.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [c.prospect_id]),
     };
   },
 
-  createOpportunity: ({ name, value, stage, prospect_id, key_contact_id }) => {
-    const result = db
-      .prepare(
-        "INSERT INTO opportunities (name, value, stage, prospect_id, key_contact_id) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(name, value || 0, stage || "Lead", prospect_id, key_contact_id);
-    const o = db
-      .prepare("SELECT * FROM opportunities WHERE id = ?")
-      .get(result.lastInsertRowid);
+  createOpportunity: async ({
+    name,
+    value,
+    stage,
+    prospect_id,
+    key_contact_id,
+  }) => {
+    const o = await queryOne(
+      "INSERT INTO opportunities (name, value, stage, prospect_id, key_contact_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [name, value || 0, stage || "Lead", prospect_id, key_contact_id],
+    );
     return {
       ...o,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(o.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [o.prospect_id]),
       keyContact: () =>
         o.key_contact_id
-          ? db
-              .prepare("SELECT * FROM contacts WHERE id = ?")
-              .get(o.key_contact_id)
+          ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
     };
   },
 
-  updateOpportunityStage: ({ id, stage }) => {
-    db.prepare("UPDATE opportunities SET stage = ? WHERE id = ?").run(
-      stage,
-      id,
+  updateOpportunityStage: async ({ id, stage }) => {
+    const o = await queryOne(
+      "UPDATE opportunities SET stage = $1 WHERE id = $2 RETURNING *",
+      [stage, id],
     );
-    const o = db.prepare("SELECT * FROM opportunities WHERE id = ?").get(id);
     return {
       ...o,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(o.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [o.prospect_id]),
       keyContact: () =>
         o.key_contact_id
-          ? db
-              .prepare("SELECT * FROM contacts WHERE id = ?")
-              .get(o.key_contact_id)
+          ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
     };
   },
 
-  saveOpportunityNotes: ({ id, notes }) => {
-    db.prepare("UPDATE opportunities SET notes = ? WHERE id = ?").run(
-      notes,
-      id,
+  saveOpportunityNotes: async ({ id, notes }) => {
+    const o = await queryOne(
+      "UPDATE opportunities SET notes = $1 WHERE id = $2 RETURNING *",
+      [notes, id],
     );
-    const o = db.prepare("SELECT * FROM opportunities WHERE id = ?").get(id);
     return {
       ...o,
       prospect: () =>
-        db.prepare("SELECT * FROM prospects WHERE id = ?").get(o.prospect_id),
+        queryOne("SELECT * FROM prospects WHERE id = $1", [o.prospect_id]),
       keyContact: () =>
         o.key_contact_id
-          ? db
-              .prepare("SELECT * FROM contacts WHERE id = ?")
-              .get(o.key_contact_id)
+          ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
     };
   },

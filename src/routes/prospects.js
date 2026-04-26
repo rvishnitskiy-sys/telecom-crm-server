@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db/database");
+const { query, queryOne, execute } = require("../db/database");
 
 /**
  * @swagger
@@ -19,9 +19,13 @@ const db = require("../db/database");
  *       200:
  *         description: List of all prospects
  */
-router.get("/", (req, res) => {
-  const prospects = db.prepare("SELECT * FROM prospects ORDER BY name").all();
-  res.json(prospects);
+router.get("/", async (req, res) => {
+  try {
+    const prospects = await query("SELECT * FROM prospects ORDER BY name");
+    res.json(prospects);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -42,12 +46,16 @@ router.get("/", (req, res) => {
  *       404:
  *         description: Prospect not found
  */
-router.get("/:id", (req, res) => {
-  const prospect = db
-    .prepare("SELECT * FROM prospects WHERE id = ?")
-    .get(req.params.id);
-  if (!prospect) return res.status(404).json({ error: "Prospect not found" });
-  res.json(prospect);
+router.get("/:id", async (req, res) => {
+  try {
+    const prospect = await queryOne("SELECT * FROM prospects WHERE id = $1", [
+      req.params.id,
+    ]);
+    if (!prospect) return res.status(404).json({ error: "Prospect not found" });
+    res.json(prospect);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -78,18 +86,18 @@ router.get("/:id", (req, res) => {
  *       400:
  *         description: Name is required
  */
-router.post("/", (req, res) => {
-  const { name, segment, country, website } = req.body;
-  if (!name) return res.status(400).json({ error: "Name is required" });
-  const result = db
-    .prepare(
-      "INSERT INTO prospects (name, segment, country, website) VALUES (?, ?, ?, ?)",
-    )
-    .run(name, segment, country, website);
-  const prospect = db
-    .prepare("SELECT * FROM prospects WHERE id = ?")
-    .get(result.lastInsertRowid);
-  res.status(201).json(prospect);
+router.post("/", async (req, res) => {
+  try {
+    const { name, segment, country, website } = req.body;
+    if (!name) return res.status(400).json({ error: "Name is required" });
+    const prospect = await queryOne(
+      "INSERT INTO prospects (name, segment, country, website) VALUES ($1, $2, $3, $4) RETURNING *",
+      [name, segment, country, website],
+    );
+    res.status(201).json(prospect);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -104,40 +112,27 @@ router.post("/", (req, res) => {
  *         required: true
  *         schema:
  *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               segment:
- *                 type: string
- *               country:
- *                 type: string
- *               website:
- *                 type: string
  *     responses:
  *       200:
  *         description: Prospect updated
  *       404:
  *         description: Prospect not found
  */
-router.put("/:id", (req, res) => {
-  const { name, segment, country, website } = req.body;
-  const existing = db
-    .prepare("SELECT * FROM prospects WHERE id = ?")
-    .get(req.params.id);
-  if (!existing) return res.status(404).json({ error: "Prospect not found" });
-  db.prepare(
-    "UPDATE prospects SET name = ?, segment = ?, country = ?, website = ? WHERE id = ?",
-  ).run(name, segment, country, website, req.params.id);
-  const prospect = db
-    .prepare("SELECT * FROM prospects WHERE id = ?")
-    .get(req.params.id);
-  res.json(prospect);
+router.put("/:id", async (req, res) => {
+  try {
+    const { name, segment, country, website } = req.body;
+    const existing = await queryOne("SELECT * FROM prospects WHERE id = $1", [
+      req.params.id,
+    ]);
+    if (!existing) return res.status(404).json({ error: "Prospect not found" });
+    const prospect = await queryOne(
+      "UPDATE prospects SET name = $1, segment = $2, country = $3, website = $4 WHERE id = $5 RETURNING *",
+      [name, segment, country, website, req.params.id],
+    );
+    res.json(prospect);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -158,13 +153,17 @@ router.put("/:id", (req, res) => {
  *       404:
  *         description: Prospect not found
  */
-router.delete("/:id", (req, res) => {
-  const existing = db
-    .prepare("SELECT * FROM prospects WHERE id = ?")
-    .get(req.params.id);
-  if (!existing) return res.status(404).json({ error: "Prospect not found" });
-  db.prepare("DELETE FROM prospects WHERE id = ?").run(req.params.id);
-  res.json({ success: true });
+router.delete("/:id", async (req, res) => {
+  try {
+    const existing = await queryOne("SELECT * FROM prospects WHERE id = $1", [
+      req.params.id,
+    ]);
+    if (!existing) return res.status(404).json({ error: "Prospect not found" });
+    await execute("DELETE FROM prospects WHERE id = $1", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

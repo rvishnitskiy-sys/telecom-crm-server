@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const { createHandler } = require("graphql-http/lib/use/express");
@@ -5,7 +7,8 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const { renderPlaygroundPage } = require("graphql-playground-html");
 
-require("./db/seed");
+const seed = require("./db/seed");
+seed().catch(console.error);
 
 const prospectsRouter = require("./routes/prospects");
 const contactsRouter = require("./routes/contacts");

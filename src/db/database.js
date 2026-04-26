@@ -1,41 +1,26 @@
-const Database = require("better-sqlite3");
-const path = require("path");
+const { Pool } = require("pg");
 
-const dbPath = path.join(__dirname, "../../database.db");
-const db = new Database(dbPath);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
+});
 
-db.pragma("journal_mode = WAL");
+async function query(sql, params = []) {
+  const result = await pool.query(sql, params);
+  return result.rows;
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS prospects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    segment TEXT,
-    country TEXT,
-    website TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+async function queryOne(sql, params = []) {
+  const result = await pool.query(sql, params);
+  return result.rows[0] || null;
+}
 
-  CREATE TABLE IF NOT EXISTS contacts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    role TEXT,
-    email TEXT,
-    phone TEXT,
-    prospect_id INTEGER REFERENCES prospects(id),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+async function execute(sql, params = []) {
+  const result = await pool.query(sql, params);
+  return result;
+}
 
-  CREATE TABLE IF NOT EXISTS opportunities (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    value INTEGER DEFAULT 0,
-    stage TEXT DEFAULT 'Lead',
-    notes TEXT DEFAULT '',
-    prospect_id INTEGER REFERENCES prospects(id),
-    key_contact_id INTEGER REFERENCES contacts(id),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-
-module.exports = db;
+module.exports = { query, queryOne, execute };
