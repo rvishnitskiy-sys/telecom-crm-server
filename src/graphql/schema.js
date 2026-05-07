@@ -33,6 +33,16 @@ const schema = buildSchema(`
     key_contact_id: Int
     prospect: Prospect
     keyContact: Contact
+    activities: [Activity]
+    created_at: String
+  }
+
+  type Activity {
+    id: ID!
+    opportunity_id: Int
+    type: String!
+    description: String!
+    opportunity: Opportunity
     created_at: String
   }
 
@@ -43,6 +53,8 @@ const schema = buildSchema(`
     contact(id: ID!): Contact
     opportunities: [Opportunity]
     opportunity(id: ID!): Opportunity
+    activities(opportunity_id: ID!): [Activity]
+    activity(id: ID!): Activity
   }
 
   type Mutation {
@@ -51,6 +63,7 @@ const schema = buildSchema(`
     createOpportunity(name: String!, value: Int, stage: String, prospect_id: Int, key_contact_id: Int): Opportunity
     updateOpportunityStage(id: ID!, stage: String!): Opportunity
     saveOpportunityNotes(id: ID!, notes: String!): Opportunity
+    createActivity(opportunity_id: ID!, type: String!, description: String!): Activity
   }
 `);
 

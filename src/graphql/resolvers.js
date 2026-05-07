@@ -67,6 +67,8 @@ const resolvers = {
         o.key_contact_id
           ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
+      activities: () =>
+        query("SELECT * FROM activities WHERE opportunity_id = $1 ORDER BY created_at DESC", [o.id]),
     };
   },
 
@@ -109,6 +111,8 @@ const resolvers = {
         o.key_contact_id
           ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
+      activities: () =>
+        query("SELECT * FROM activities WHERE opportunity_id = $1 ORDER BY created_at DESC", [o.id]),
     };
   },
 
@@ -125,6 +129,8 @@ const resolvers = {
         o.key_contact_id
           ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
+      activities: () =>
+        query("SELECT * FROM activities WHERE opportunity_id = $1 ORDER BY created_at DESC", [o.id]),
     };
   },
 
@@ -141,6 +147,42 @@ const resolvers = {
         o.key_contact_id
           ? queryOne("SELECT * FROM contacts WHERE id = $1", [o.key_contact_id])
           : null,
+      activities: () =>
+        query("SELECT * FROM activities WHERE opportunity_id = $1 ORDER BY created_at DESC", [o.id]),
+    };
+  },
+
+  activities: async ({ opportunity_id }) => {
+    const acts = await query(
+      "SELECT * FROM activities WHERE opportunity_id = $1 ORDER BY created_at DESC",
+      [opportunity_id],
+    );
+    return acts.map((a) => ({
+      ...a,
+      opportunity: () =>
+        queryOne("SELECT * FROM opportunities WHERE id = $1", [a.opportunity_id]),
+    }));
+  },
+
+  activity: async ({ id }) => {
+    const a = await queryOne("SELECT * FROM activities WHERE id = $1", [id]);
+    if (!a) return null;
+    return {
+      ...a,
+      opportunity: () =>
+        queryOne("SELECT * FROM opportunities WHERE id = $1", [a.opportunity_id]),
+    };
+  },
+
+  createActivity: async ({ opportunity_id, type, description }) => {
+    const a = await queryOne(
+      "INSERT INTO activities (opportunity_id, type, description) VALUES ($1, $2, $3) RETURNING *",
+      [opportunity_id, type, description],
+    );
+    return {
+      ...a,
+      opportunity: () =>
+        queryOne("SELECT * FROM opportunities WHERE id = $1", [a.opportunity_id]),
     };
   },
 };
