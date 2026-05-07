@@ -37,6 +37,16 @@ async function seed() {
     )
   `);
 
+  await execute(`
+    CREATE TABLE IF NOT EXISTS activities (
+      id SERIAL PRIMARY KEY,
+      opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK (type IN ('call', 'email', 'meeting', 'note')),
+      description TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   const existing = await queryOne("SELECT COUNT(*) as count FROM prospects");
   if (parseInt(existing.count) > 0) {
     console.log("Database already has data, skipping seed");

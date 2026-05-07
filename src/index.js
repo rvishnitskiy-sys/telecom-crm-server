@@ -12,6 +12,7 @@ seed().catch(console.error);
 const prospectsRouter = require("./routes/prospects");
 const contactsRouter = require("./routes/contacts");
 const opportunitiesRouter = require("./routes/opportunities");
+const activitiesRouter = require("./routes/activities");
 const authRouter = require("./auth/authRouter");
 const { requireAuth } = require("./auth/middleware");
 
@@ -60,6 +61,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/prospects", requireAuth, prospectsRouter);
 app.use("/api/contacts", requireAuth, contactsRouter);
 app.use("/api/opportunities", requireAuth, opportunitiesRouter);
+app.use("/api/activities", requireAuth, activitiesRouter);
 
 app.all(
   "/graphql",
