@@ -4,6 +4,31 @@ const { query, queryOne } = require("../db/database");
 
 const VALID_TYPES = ["call", "email", "meeting", "note"];
 
+/**
+ * @swagger
+ * tags:
+ *   name: Activities
+ *   description: Activity log for opportunities
+ */
+
+/**
+ * @swagger
+ * /api/activities:
+ *   get:
+ *     summary: Get all activities for an opportunity
+ *     tags: [Activities]
+ *     parameters:
+ *       - in: query
+ *         name: opportunity_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of activities
+ *       400:
+ *         description: opportunity_id query parameter is required
+ */
 router.get("/", async (req, res) => {
   try {
     const { opportunity_id } = req.query;
@@ -19,6 +44,35 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/activities:
+ *   post:
+ *     summary: Create a new activity
+ *     tags: [Activities]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [opportunity_id, type, description]
+ *             properties:
+ *               opportunity_id:
+ *                 type: integer
+ *               type:
+ *                 type: string
+ *                 enum: [call, email, meeting, note]
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Activity created
+ *       400:
+ *         description: Missing or invalid fields
+ *       404:
+ *         description: Opportunity not found
+ */
 router.post("/", async (req, res) => {
   try {
     const { opportunity_id, type, description } = req.body;
