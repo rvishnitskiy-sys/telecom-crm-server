@@ -1,5 +1,4 @@
 require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
 const { createHandler } = require("graphql-http/lib/use/express");
@@ -13,6 +12,8 @@ seed().catch(console.error);
 const prospectsRouter = require("./routes/prospects");
 const contactsRouter = require("./routes/contacts");
 const opportunitiesRouter = require("./routes/opportunities");
+const authRouter = require("./auth/authRouter");
+const { requireAuth } = require("./auth/middleware");
 
 const schema = require("./graphql/schema");
 const { resolvers } = require("./graphql/resolvers");
@@ -20,7 +21,12 @@ const { resolvers } = require("./graphql/resolvers");
 const app = express();
 const PORT = 3001;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 
 const swaggerOptions = {
@@ -32,6 +38,16 @@ const swaggerOptions = {
       description: "REST API for Telecom CRM",
     },
     servers: [{ url: "http://localhost:3001" }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
   },
   apis: ["./src/routes/*.js"],
 };
@@ -39,11 +55,17 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.use("/api/prospects", prospectsRouter);
-app.use("/api/contacts", contactsRouter);
-app.use("/api/opportunities", opportunitiesRouter);
+app.use("/api/auth", authRouter);
 
-app.all("/graphql", createHandler({ schema, rootValue: resolvers }));
+app.use("/api/prospects", requireAuth, prospectsRouter);
+app.use("/api/contacts", requireAuth, contactsRouter);
+app.use("/api/opportunities", requireAuth, opportunitiesRouter);
+
+app.all(
+  "/graphql",
+  requireAuth,
+  createHandler({ schema, rootValue: resolvers }),
+);
 
 app.get("/graphiql", (req, res) => {
   res.setHeader("Content-Type", "text/html");
