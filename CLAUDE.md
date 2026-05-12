@@ -1,6 +1,7 @@
 \# Telecom CRM — Server
 
-
+\## Baseline documentation
+Read baseline-server.md before making any changes. It describes the current data model, all existing API endpoints, auth setup, and database helper patterns.
 
 \## Project overview
 
